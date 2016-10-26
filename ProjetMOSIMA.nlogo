@@ -1,5 +1,12 @@
 breed[agents agent]
 
+globals [
+  x-domain ;
+  precision-Domain
+  effort-min  ; = 0.00010  ; effort minimum fournir par un agent
+  effort-max  ; = 2  ; effort maximum fournir par un agent
+]
+
 agents-own [
   typeAgent
   couleur_effort
@@ -15,13 +22,28 @@ agents-own [
   binome_last_profit
   all_average_effort
   all_average_profit
-  have_Played?
+  have_Played? ; true si l'agent a participé à un binômage durant le tick courant
+  ;( utilisée pour la fonction "logs" )
 ]
 
 ; Initialisation de tous les agents
 ; Leur couleur initiale représente le type de comportement qu'ils ont
 to setup
   clear-all
+
+  set effort-min 0.00010
+  set effort-max 2
+
+  ; On crée une liste contenant tous les chiffres de 0.00010 à 2 , avec un pas de  (1 / precision-Domain )
+  ; Ce domaine sera utilisé pour les comportement de type "rational" et  "average rational"
+  set precision-Domain 1000
+
+  let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 - 1[  ( 1 exlu )
+  set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace "0" par 0.00010
+
+  let  dom2 n-values (precision-Domain + 1) [(? / precision-Domain) + 1 ] ; [1 - 2] ( 2 inclu )
+  set x-domain sentence dom1 dom2
+  print x-domain
 
   create-agents nbAgents_null [
     set typeAgent 0
@@ -79,7 +101,7 @@ to setup
     ;set shape "square"
     set heading one-of [0 90 180 270]
 
-    set effort random-float 2
+    set effort ( random-float ( 2 - effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2
     set label who
     logs
   ]
@@ -100,11 +122,11 @@ to go
     game
   ]
   if verbose? [print "-- End Game phase --"]
-  ask agents [
+  ask agents with [have_Played? ] [
     adaptation
   ]
   if verbose? [
-    ask agents with [have_Played? = true  ][ logs ]
+    ask agents with [have_Played? ][ logs ]
   ]
 end
 
@@ -145,13 +167,13 @@ to game
 
   set nbInteractions ( nbInteractions + 1 )
   set last_effort effort
-
+  set last_profit profit
 
   let effort_j 0
   ask antagonist [ set effort_j effort ]
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   set profit_cumule ( profit_cumule + profit )
-  set last_profit profit
+
   set binome_last_effort effort_j
 
 
@@ -212,7 +234,19 @@ to adaptation
     ; newEffort = argmax ( ( 5 / ( 2*sqrt(x+binome_last_effort) ) - 2x )
     if typeAgent = 3
     [
-      ; TODO - Pas encore trouvé comment faire
+      let profitTmp 0   ; profit
+      let profit-values []  ; liste de tous les profits calculés
+      foreach x-domain
+      [
+        set profitTmp fct ? binome_last_effort
+        set profit-values lput profitTmp profit-values   ; on remplie la liste des profits
+      ]
+      ;print profit-values
+      let positionOfProfitMax position (max profit-values) profit-values  ; on récupére l'indice du profit max
+      set effort item positionOfProfitMax x-domain  ; on récupère l'effort qui a donné le profit max
+
+      ;print word "profit max : " (max profit-values)
+      ;print word "res : " effort
     ]
     ; On compare son profit avec celui du dernier partenaire.
     ; Si le profit de l'agent même est supérieur, il augmente de 10%, sinon il baisse de 10%
@@ -246,7 +280,7 @@ to adaptation
       ]
     ]
     ; On compare son effort avec celui du dernier partenaire.
-    ; Si le effort de l'agent même est supérieur, il baisse de 10%, sinon il augmente de 10%
+    ; Si l'effort de l'agent même est supérieur, il baisse de 10%, sinon il augmente de 10%
     if typeAgent = 8
     [
       ifelse ( last_effort <= binome_last_effort )
@@ -263,6 +297,14 @@ to adaptation
     ]
   ]
 end
+
+
+to-report fct [_x binLastEff ]
+  ; f(x) = ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
+  report ( ( 5 * ( sqrt ( _x + binLastEff ) ) ) - ( _x ^ 2) )
+end
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 518
@@ -330,7 +372,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-0
+1
 1
 0
 Number
@@ -341,7 +383,7 @@ INPUTBOX
 166
 322
 nbAgents_profit
-1
+0
 1
 0
 Number
