@@ -4,7 +4,7 @@ globals [
   x-domain ;
   precision-Domain
   effort-min  ; = 0.00010  ; effort minimum fournir par un agent
-  effort-max  ; = 2  ; effort maximum fournir par un agent
+  effort-max  ; = 2.001  ; effort maximum fournir par un agent
 ]
 
 agents-own [
@@ -23,7 +23,7 @@ agents-own [
   all_average_effort
   all_average_profit
   have_Played? ; true si l'agent a participé à un binômage durant le tick courant
-  ;( utilisée pour la fonction "logs" )
+  ;( utilisée pour la fonction "logs" et "adaptation" )
 ]
 
 ; Initialisation de tous les agents
@@ -32,16 +32,17 @@ to setup
   clear-all
 
   set effort-min 0.00010
-  set effort-max 2
+  set effort-max 2.001
 
-  ; On crée une liste contenant tous les chiffres de 0.00010 à 2 , avec un pas de  (1 / precision-Domain )
+  ; On crée une liste contenant tous les chiffres de 0.00010 à 2.001 , avec un pas de  (1 / precision-Domain )
   ; Ce domaine sera utilisé pour les comportement de type "rational" et  "average rational"
   set precision-Domain 1000
 
-  let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 - 1[  ( 1 exlu )
-  set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace "0" par 0.00010
+  let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 à  1[  ( 1 exlu )
+  set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace l'effort "0" par 0.00010
 
-  let  dom2 n-values (precision-Domain + 1) [(? / precision-Domain) + 1 ] ; [1 - 2] ( 2 inclu )
+  let  dom2 n-values (precision-Domain + 1) [(? / precision-Domain) + 1 ] ; [1 à  2] ( 2 inclu )
+  set dom2 lput 2.001 dom2  ; ajout de l'effort 2.001
   set x-domain sentence dom1 dom2
   print x-domain
 
@@ -101,7 +102,7 @@ to setup
     ;set shape "square"
     set heading one-of [0 90 180 270]
 
-    set effort ( random-float ( 2 - effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2
+    set effort ( random-float ( 2 + effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2.001
     set label who
     logs
   ]
@@ -169,6 +170,7 @@ to game
   set last_effort effort
   set last_profit profit
 
+
   let effort_j 0
   ask antagonist [ set effort_j effort ]
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
@@ -217,7 +219,7 @@ to adaptation
     if typeAgent = 0
     [
       ;set effort random-float 0.00010
-      set effort 0.00010
+      set effort effort-min
     ]
     ; Nouvel effort valant la moitié de l'effort du partenaire précédent
     if typeAgent = 1
@@ -264,11 +266,26 @@ to adaptation
     if typeAgent = 5
     [
       ;set effort ( 1.999 + random-float 0.002 )
-      set effort 2.001
+      set effort effort-max
     ]
     ; Idem que le rationel, remplacer binome_last_effort par all_average_effort
     if typeAgent = 6
     [
+
+      let profitTmp 0   ; profit
+      let profit-values []  ; liste de tous les profits calculés
+      foreach x-domain
+      [
+        set profitTmp fct ? all_average_effort
+        set profit-values lput profitTmp profit-values   ; on remplie la liste des profits
+      ]
+      ;print profit-values
+      let positionOfProfitMax position (max profit-values) profit-values  ; on récupére l'indice du profit max
+      set effort item positionOfProfitMax x-domain  ; on récupère l'effort qui a donné le profit max
+
+      ;print word "profit max : " (max profit-values)
+      ;print word "res : " effort
+
 
     ]
     ; Nouvel effort devient celui de l'ancien partenaire si celui-ci a eu un meilleur profit
