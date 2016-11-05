@@ -1,8 +1,23 @@
+extensions [palette]
 breed[agents agent]
+breed[agentsE agentE] ; Agents utilisés pour visualiser les efforts
+
+globals [
+  x-domain ;
+  precision-Domain
+  effort-min  ; = 0.00010  ; effort minimum fournir par un agent
+  effort-max  ; = 2.001  ; effort maximum fournir par un agent
+
+  availableClones ; Pour la double visualisation
+]
+
+; Patchs du milieu (pour empecher que les agents se mélangent)
+patches-own [
+  obstacle?
+]
 
 agents-own [
   typeAgent
-  couleur_effort
   couleur_type
   evolution
   nbInteractions
@@ -15,14 +30,34 @@ agents-own [
   binome_last_profit
   all_average_effort
   all_average_profit
-  have_Played?
+  have_Played? ; true si l'agent a participé à un binômage durant le tick courant
+  ;( utilisée pour la fonction "logs" et "adaptation" )
 ]
 
-; Initialisation de tous les agents
-; Leur couleur initiale représente le type de comportement qu'ils ont
-to setup
-  clear-all
+; Agents représentant les efforts et leurs équivalents représentant le type
+agentsE-own [
+  clone
+]
 
+; On déplace les agents sur les memes cases dans chaque moitié du modele
+; On leur affecte une couleur suivant un gradian du bleu au rouge en passant par le vert selon leur effort
+to agentsE-update
+  ask agentsE [
+    let xCl 0
+    let yCl 0
+    let effortCl 0
+    ask clone [
+      set xCl xcor
+      set yCl ycor
+      set effortCl effort
+    ]
+    setxy (xCl + max-pxcor / 2 + 1) yCl
+
+    set color palette:scale-gradient [[0 0 255][0 85 255][0 170 255][0 255 255][0 255 170][0 255 85][0 255 0][85 255 0][170 255 0][255 255 0][255 170 0][255 85 0][255 0 0]] effortCl 0 2
+  ]
+end
+
+to setup-agents
   create-agents nbAgents_null [
     set typeAgent 0
     set couleur_type red
@@ -73,16 +108,85 @@ to setup
     set couleur_type pink
   ]
 
+  ; On rempli la liste des agents n'ayant pas encore d'équivalent d'un point de vue effort
+  set availableClones sort-by < agents
+
   ask agents [
-    move-to one-of patches with [not any? turtles-here]
+    move-to one-of patches with [not any? turtles-here and pxcor < max-pxcor / 2]
     set color couleur_type
-    ;set shape "square"
+    set shape "square"
     set heading one-of [0 90 180 270]
 
-    set effort random-float 2
-    set label who
-    logs
+    ifelse (typeAgent = 0)[
+      set effort effort-min
+    ]
+    [
+      ifelse (typeAgent = 5)
+      [
+        set effort effort-max
+      ]
+      [
+        ifelse (typeAgent = 7)
+        [
+          set effort effort-max
+        ]
+        [
+          set effort ( random-float ( 2 + effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2.001
+        ]
+      ]
+      set label who
+      ;logs
+    ]
   ]
+end
+
+; On crée les agents représentant l'effort et leur affecte un équivalent qu'ils représenteront
+to setup-agentsE
+  ; J'aurais pu utiliser create-agentsE count agents, c'était plus rapide et moins con. Flemme de changer
+  create-agentsE nbAgents_null + nbAgents_shrinking + nbAgents_replicator + nbAgents_rational + nbAgents_profit + nbAgents_high + nbAgents_average_Rational + nbAgents_winner + nbAgents_effort + nbAgents_averager[
+    set clone one-of availableClones
+    set availableClones remove clone availableClones
+    set shape "square"
+  ]
+end
+
+; Initialisation de tous les agents
+; Leur couleur initiale représente le type de comportement qu'ils ont
+to setup
+  clear-globals
+  clear-ticks
+  clear-turtles
+  clear-patches
+  clear-drawing
+  clear-output
+
+  set effort-min 0.00010
+  set effort-max 2.001
+
+  ; On crée une liste contenant tous les chiffres de 0.00010 à 2.001 , avec un pas de  (1 / precision-Domain )
+  ; Ce domaine sera utilisé pour les comportement de type "rational" et  "average rational"
+  set precision-Domain 1000
+
+  let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 à  1[  ( 1 exlu )
+  set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace l'effort "0" par 0.00010
+
+  let  dom2 n-values (precision-Domain + 1) [(? / precision-Domain) + 1 ] ; [1 à  2] ( 2 inclu )
+  set dom2 lput 2.001 dom2  ; ajout de l'effort 2.001
+  set x-domain sentence dom1 dom2
+  ;print x-domain
+
+  ask patches [
+    set obstacle? False
+  ]
+  ask patches with [pxcor = max-pxcor / 2]
+  [
+    set pcolor white
+    set obstacle? True
+  ]
+
+  setup-agents
+  setup-agentsE
+  agentsE-update
 
   reset-ticks
 end
@@ -100,11 +204,14 @@ to go
     game
   ]
   if verbose? [print "-- End Game phase --"]
-  ask agents [
+
+  agentsE-update
+
+  ask agents with [have_Played? ] [
     adaptation
   ]
   if verbose? [
-    ask agents with [have_Played? = true  ][ logs ]
+    ask agents with [have_Played? ][ logs ]
   ]
 end
 
@@ -117,7 +224,13 @@ to move
   [
     if ( [ not any? turtles-here ] of patch-ahead 1 )
     [
-      fd 1
+      let obs False
+      ask patch-ahead 1 [
+        set obs obstacle?
+      ]
+      if not obs [
+        fd 1
+      ]
     ]
   ]
 end
@@ -145,13 +258,14 @@ to game
 
   set nbInteractions ( nbInteractions + 1 )
   set last_effort effort
+  set last_profit profit
 
 
   let effort_j 0
   ask antagonist [ set effort_j effort ]
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   set profit_cumule ( profit_cumule + profit )
-  set last_profit profit
+
   set binome_last_effort effort_j
 
 
@@ -162,7 +276,7 @@ end
 
 ; Methode permettant de logger toutes les valeurs de chaque agent
 to logs
-  print "---------------------"
+  print (word "----------- Agent " who " ----------")
   print word "Type: " typeAgent
   print word "Effort: " effort
   print word "Last Effort: " last_effort
@@ -195,7 +309,7 @@ to adaptation
     if typeAgent = 0
     [
       ;set effort random-float 0.00010
-      set effort 0.00010
+      set effort effort-min
     ]
     ; Nouvel effort valant la moitié de l'effort du partenaire précédent
     if typeAgent = 1
@@ -212,13 +326,25 @@ to adaptation
     ; newEffort = argmax ( ( 5 / ( 2*sqrt(x+binome_last_effort) ) - 2x )
     if typeAgent = 3
     [
-      ; TODO - Pas encore trouvé comment faire
+      let profitTmp 0   ; profit
+      let profit-values []  ; liste de tous les profits calculés
+      foreach x-domain
+      [
+        set profitTmp fct ? binome_last_effort
+        set profit-values lput profitTmp profit-values   ; on remplie la liste des profits
+      ]
+      ;print profit-values
+      let positionOfProfitMax position (max profit-values) profit-values  ; on récupére l'indice du profit max
+      set effort item positionOfProfitMax x-domain  ; on récupère l'effort qui a donné le profit max
+
+      ;print word "profit max : " (max profit-values)
+      ;print word "res : " effort
     ]
     ; On compare son profit avec celui du dernier partenaire.
     ; Si le profit de l'agent même est supérieur, il augmente de 10%, sinon il baisse de 10%
     if typeAgent = 4
     [
-      ifelse ( last_profit >= binome_last_profit )
+      ifelse ( last_profit > binome_last_profit )
       [
         set effort ( effort * 1.1 )
       ]
@@ -230,11 +356,26 @@ to adaptation
     if typeAgent = 5
     [
       ;set effort ( 1.999 + random-float 0.002 )
-      set effort 2.001
+      set effort effort-max
     ]
     ; Idem que le rationel, remplacer binome_last_effort par all_average_effort
     if typeAgent = 6
     [
+
+      let profitTmp 0   ; profit
+      let profit-values []  ; liste de tous les profits calculés
+      foreach x-domain
+      [
+        set profitTmp fct ? all_average_effort
+        set profit-values lput profitTmp profit-values   ; on remplie la liste des profits
+      ]
+      ;print profit-values
+      let positionOfProfitMax position (max profit-values) profit-values  ; on récupére l'indice du profit max
+      set effort item positionOfProfitMax x-domain  ; on récupère l'effort qui a donné le profit max
+
+      ;print word "profit max : " (max profit-values)
+      ;print word "res : " effort
+
 
     ]
     ; Nouvel effort devient celui de l'ancien partenaire si celui-ci a eu un meilleur profit
@@ -246,7 +387,7 @@ to adaptation
       ]
     ]
     ; On compare son effort avec celui du dernier partenaire.
-    ; Si le effort de l'agent même est supérieur, il baisse de 10%, sinon il augmente de 10%
+    ; Si l'effort de l'agent même est supérieur, il baisse de 10%, sinon il augmente de 10%
     if typeAgent = 8
     [
       ifelse ( last_effort <= binome_last_effort )
@@ -263,15 +404,125 @@ to adaptation
     ]
   ]
 end
+
+to-report fct [_x binLastEff ]
+  ; f(x) = ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
+  report ( ( 5 * ( sqrt ( _x + binLastEff ) ) ) - ( _x ^ 2) )
+end
+
+
+; Methode permettant de changer le nombre d'agent de chaque type directement sans le faire manuellement
+to setup_values [null shrinking replicator rational prfit high avg winner effrt avgr]
+  set nbAgents_null null
+  set nbAgents_shrinking shrinking
+  set nbAgents_replicator replicator
+  set nbAgents_rational rational
+  set nbAgents_profit prfit
+  set nbAgents_high high
+  set nbAgents_average_Rational avg
+  set nbAgents_winner winner
+  set nbAgents_effort effrt
+  set nbAgents_averager avgr
+end
+
+
+; Simulation (Reproduire les courbes 6.9 et 6.10)
+
+; Methode affichant l'effort moyen de chaque population d'agent en fonction du pourcentage d'agents High Efforts
+to allHighEffortSims
+  clear-all-plots
+  simuHighEffort 0
+  simuHighEffort 1
+  simuHighEffort 2
+  simuHighEffort 4
+  simuHighEffort 7
+  simuHighEffort 8
+  simuHighEffort 9
+end
+
+; Prend en parametre le type de population voulu (null, shrinking, replicator, profit, winner, effort, averager)
+; Trace une courbe indiquant l'effort moyen d'une population au bout de 5000 ticks pour 0, 0.6, 5.6, 33.3, 66.7, 100% d'agents High
+to simuHighEffort [otherAgent]
+
+  create-temporary-plot-pen "Marques"
+  set-current-plot-pen "Marques"
+  set-plot-pen-color grey
+  plotxy 0.6 0
+  plot-pen-down
+  plotxy 0.6 2.5
+  plot-pen-up
+  plotxy 5.6 0
+  plot-pen-down
+  plotxy 5.6 2.5
+  plot-pen-up
+  plotxy 33.3 0
+  plot-pen-down
+  plotxy 33.3 2.5
+  plot-pen-up
+  plotxy 66.6 0
+  plot-pen-down
+  plotxy 66.6 2.5
+  plot-pen-up
+
+  let avgEffort 0
+
+  let x_0 0
+  let x_1 0
+  let x_2 0
+  let x_4 0
+  let x_7 0
+  let x_8 0
+  let x_9 0
+
+  let percentage 100
+
+  if otherAgent != 0 and otherAgent != 1 and otherAgent != 2 and otherAgent != 4 and otherAgent != 7 and otherAgent != 8 and otherAgent != 9
+  [
+    stop
+  ]
+
+  while [percentage != -1]
+  [
+    if otherAgent = 0 [set-current-plot-pen "Null Effort" set x_0 percentage]
+    if otherAgent = 1 [set-current-plot-pen "Shrinking Effort" set x_1 percentage]
+    if otherAgent = 2 [set-current-plot-pen "Replicator" set x_2 percentage]
+    if otherAgent = 4 [set-current-plot-pen "Profit Comparator" set x_4 percentage]
+    if otherAgent = 7 [set-current-plot-pen "Winner Imitator" set x_7 percentage]
+    if otherAgent = 8 [set-current-plot-pen "Effort Comparator" set x_8 percentage]
+    if otherAgent = 9 [set-current-plot-pen "Averager" set x_9 percentage]
+    setup_values x_0 x_1 x_2 0 x_4 (100 - percentage) 0 x_7 x_8 x_9
+    setup
+    while [ticks < 5000]
+    [
+      go
+    ]
+
+    ask agents [
+      set avgEffort avgEffort + effort
+    ]
+    set avgEffort (avgEffort / count agents)
+    plotxy (100 - percentage) avgEffort
+
+    if (percentage = 0) [set percentage -1]
+    if (percentage = 33) [set percentage 0]
+    if (percentage = 67) [set percentage 33]
+    if (percentage = 95) [set percentage 67]
+    if (percentage = 99) [plot-pen-down set percentage 95]
+    if (percentage = 100) [plot-pen-down set percentage 99]
+  ]
+
+  plot-pen-up
+
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-518
-10
-763
-221
+407
+25
+906
+312
 -1
 -1
-90.0
+23.3
 1
 10
 1
@@ -282,9 +533,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-1
+20
 0
-1
+10
 1
 1
 1
@@ -297,7 +548,7 @@ INPUTBOX
 117
 70
 nbAgents_null
-1
+6
 1
 0
 Number
@@ -308,7 +559,7 @@ INPUTBOX
 166
 133
 nbAgents_shrinking
-0
+6
 1
 0
 Number
@@ -319,7 +570,7 @@ INPUTBOX
 166
 196
 nbAgents_replicator
-0
+6
 1
 0
 Number
@@ -330,7 +581,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-0
+6
 1
 0
 Number
@@ -341,7 +592,7 @@ INPUTBOX
 166
 322
 nbAgents_profit
-1
+6
 1
 0
 Number
@@ -352,7 +603,7 @@ INPUTBOX
 166
 385
 nbAgents_high
-0
+6
 1
 0
 Number
@@ -363,7 +614,7 @@ INPUTBOX
 166
 448
 nbAgents_average_Rational
-0
+6
 1
 0
 Number
@@ -374,7 +625,7 @@ INPUTBOX
 166
 511
 nbAgents_winner
-0
+6
 1
 0
 Number
@@ -385,7 +636,7 @@ INPUTBOX
 166
 574
 nbAgents_effort
-0
+6
 1
 0
 Number
@@ -396,7 +647,7 @@ INPUTBOX
 166
 637
 nbAgents_averager
-0
+6
 1
 0
 Number
@@ -457,9 +708,186 @@ SWITCH
 159
 verbose?
 verbose?
-0
+1
 1
 -1000
+
+PLOT
+540
+402
+796
+581
+Average Effort
+High Effort Agents %
+Effort
+0.0
+100.0
+0.0
+2.5
+true
+false
+"" ""
+PENS
+"Null Effort" 1.0 0 -13345367 true "" ""
+"Shrinking Effort" 1.0 0 -2064490 true "" ""
+"Replicator" 1.0 0 -8630108 true "" ""
+"Profit Comparator" 1.0 0 -1184463 true "" ""
+"Winner Imitator" 1.0 0 -11221820 true "" ""
+"Effort Comparator" 1.0 0 -6459832 true "" ""
+"Averager" 1.0 0 -14835848 true "" ""
+
+BUTTON
+337
+711
+489
+744
+NIL
+allHighEffortSims
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+342
+454
+470
+487
+NIL
+clear-all-plots
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+18
+652
+113
+685
+Null - HE Sim
+simuHighEffort 0
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+115
+652
+241
+685
+Shrinking - HE Sim
+simuHighEffort 1
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+243
+652
+376
+685
+Replicator - HE Sim
+simuHighEffort 2
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+377
+652
+488
+685
+Profit - HE Sim
+simuHighEffort 4
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+490
+652
+608
+685
+Winner - HE Sim
+simuHighEffort 7
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+609
+652
+722
+685
+Effort - HE Sim
+simuHighEffort 8
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+723
+652
+851
+685
+Averager - HE Sim
+simuHighEffort 9
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -804,7 +1232,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
