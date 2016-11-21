@@ -22,10 +22,10 @@ agents-own [
   evolution
   nbInteractions
   effort
-  last_effort
+  ;last_effort
   profit
   profit_cumule
-  last_profit
+  ;last_profit
   binome_last_effort
   binome_last_profit
   ;all_average_effort
@@ -259,18 +259,19 @@ to game
   set have_Played? true
 
   set nbInteractions ( nbInteractions + 1 )
-  set last_effort effort
-  set last_profit profit
+  ;set last_effort effort
+  ;set last_profit profit
 
 
   let effort_j 0
   ask antagonist [ set effort_j effort ]
 
-  if useNose? [
-    let  coef ((1 - Nose) + random-float ((1 + Nose) - (1 - Nose))) ; random d'un flottant  allant de 1-buit à 1+buit
-    print coef
+  let coefNoise 1
+  if useNoise? [
+    set coefNoise ((1 - Noise) + random-float ((1 + Noise) - (1 - Noise))) ; random d'un flottant  allant de 1-buit à 1+buit
+    ;print coefNoise
   ]
-
+  set effort_j (effort_j * coefNoise)
 
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   set profit_cumule ( profit_cumule + profit )
@@ -278,7 +279,7 @@ to game
   set binome_last_effort effort_j
 
 
-  let profit_i profit
+  let profit_i (profit * coefNoise)
   ask antagonist [ set binome_last_profit profit_i ]
 
   set binome_all_effort binome_all_effort + effort_j
@@ -291,10 +292,10 @@ to logs
   print (word "----------- Agent " who " ----------")
   print word "Type: " typeAgent
   print word "Effort: " effort
-  print word "Last Effort: " last_effort
+ ; print word "Last Effort: " last_effort
   print word "Profit: " profit
   print word "Profit Cumulé: " profit_cumule
-  print word "Last Profit: " last_profit
+  ;print word "Last Profit: " last_profit
   print word "Effort du dernier partenaire: " binome_last_effort
   print word "Profit du dernier partenaire: " binome_last_profit
   print word "nbInteractions: " nbInteractions
@@ -392,7 +393,7 @@ to adaptation
     ; Nouvel effort devient celui de l'ancien partenaire si celui-ci a eu un meilleur profit
     if typeAgent = 7
     [
-      if ( last_profit < binome_last_profit )
+      if ( profit < binome_last_profit )
       [
         set effort binome_last_effort
       ]
@@ -401,7 +402,7 @@ to adaptation
     ; Si l'effort de l'agent même est supérieur, il baisse de 10%, sinon il augmente de 10%
     if typeAgent = 8
     [
-      ifelse ( last_effort <= binome_last_effort )
+      ifelse ( effort < binome_last_effort )
       [
         set effort ( effort * 1.1 )
       ]
@@ -437,7 +438,7 @@ to setup_values [null shrinking replicator rational prfit high avg winner effrt 
 end
 
 
-; Simulation (Reproduire les courbes 6.9 et 6.10)
+; Simulation (Reproduire les courbes 6.9)
 
 ; Methode affichant l'effort moyen de chaque population d'agent en fonction du pourcentage d'agents High Efforts
 to allHighEffortSims
@@ -451,10 +452,17 @@ to allHighEffortSims
   simuHighEffort 9
 end
 
+; Simulation (Reproduire les courbes 6.10)
+to SimsRational
+  clear-all-plots
+  simuHighEffort 3
+  simuHighEffort 6
+end
 ; Prend en parametre le type de population voulu (null, shrinking, replicator, profit, winner, effort, averager)
 ; Trace une courbe indiquant l'effort moyen d'une population au bout de 5000 ticks pour 0, 0.6, 5.6, 33.3, 66.7, 100% d'agents High
 to simuHighEffort [otherAgent]
 
+  set-current-plot "Average Effort"
   create-temporary-plot-pen "Marques"
   set-current-plot-pen "Marques"
   set-plot-pen-color grey
@@ -514,7 +522,7 @@ to simuHighEffort [otherAgent]
     if otherAgent = 9 [set-current-plot-pen "Averager" set x_9 percentage]
     setup_values x_0 x_1 x_2 x_3 x_4 (100 - percentage) x_6 x_7 x_8 x_9
     setup
-    while [ticks < 5000]
+    while [ticks < 4000]
     [
       go
     ]
@@ -537,12 +545,56 @@ to simuHighEffort [otherAgent]
   plot-pen-up
 
 end
+
+to simuNoiseAgents [namePlot]
+
+  let nbTicks 4000
+  set-current-plot "Noise Effect"
+  create-temporary-plot-pen "Marques"
+  set-current-plot-pen "Marques"
+  set-plot-pen-color grey
+  plotxy 0 2
+  plot-pen-down
+  plotxy nbTicks 2
+  plot-pen-up
+  set-current-plot-pen namePlot
+  let x 0
+  setup_values x x x x x x x 100 x x
+  setup
+  let avgEffort 0
+  while [ticks < nbTicks]
+  [
+    go
+    set avgEffort 0
+    ask agents [
+      set avgEffort avgEffort + effort
+    ]
+    set avgEffort (avgEffort / count agents)
+    plotxy ticks avgEffort
+    if ticks = 0 [plot-pen-down]
+
+  ]
+
+  plot-pen-up
+
+end
+; Simulation (Reproduire les courbes 6.15)
+to simul_Noise
+  clear-all-plots
+  set useNoise? True
+  set Noise 0.01
+  simuNoiseAgents "Noise_Low_Level"
+  set Noise 0.25
+  simuNoiseAgents "Noise_Medium_Level"
+  set Noise 0.5
+  simuNoiseAgents "Noise_High_Level"
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 407
 25
 906
-312
+428
 -1
 -1
 23.3
@@ -558,7 +610,7 @@ GRAPHICS-WINDOW
 0
 20
 0
-10
+15
 1
 1
 1
@@ -571,7 +623,7 @@ INPUTBOX
 117
 70
 nbAgents_null
-100
+0
 1
 0
 Number
@@ -604,7 +656,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-0
+99
 1
 0
 Number
@@ -626,7 +678,7 @@ INPUTBOX
 166
 385
 nbAgents_high
-0
+1
 1
 0
 Number
@@ -676,10 +728,10 @@ nbAgents_averager
 Number
 
 BUTTON
-546
-339
-619
-372
+227
+322
+300
+355
 NIL
 setup
 NIL
@@ -693,10 +745,10 @@ NIL
 1
 
 BUTTON
-694
-338
-757
-371
+331
+321
+394
+354
 NIL
 go
 T
@@ -714,11 +766,11 @@ SLIDER
 256
 374
 289
-Nose
-Nose
+Noise
+Noise
 0.01
 0.5
-0.01
+0.5
 0.01
 1
 NIL
@@ -736,10 +788,10 @@ verbose?
 -1000
 
 PLOT
-540
-402
-796
-581
+1010
+197
+1266
+376
 Average Effort
 High Effort Agents %
 Effort
@@ -754,7 +806,7 @@ PENS
 "Null Effort" 1.0 0 -13345367 true "" ""
 "Shrinking Effort" 1.0 0 -2064490 true "" ""
 "Replicator" 1.0 0 -8630108 true "" ""
-"Profit Comparator" 1.0 0 -1184463 true "" ""
+"Profit Comparator" 1.0 0 -4079321 true "" ""
 "Winner Imitator" 1.0 0 -11221820 true "" ""
 "Effort Comparator" 1.0 0 -6459832 true "" ""
 "Averager" 1.0 0 -14835848 true "" ""
@@ -762,10 +814,10 @@ PENS
 "Average_Rational" 1.0 0 -2674135 true "" ""
 
 BUTTON
-337
-711
-489
-744
+1280
+210
+1432
+243
 NIL
 allHighEffortSims
 NIL
@@ -779,10 +831,10 @@ NIL
 1
 
 BUTTON
-342
-454
-470
-487
+237
+372
+365
+405
 NIL
 clear-all-plots
 NIL
@@ -951,13 +1003,67 @@ NIL
 SWITCH
 223
 217
-350
+354
 250
-useNose?
-useNose?
+useNoise?
+useNoise?
 0
 1
 -1000
+
+BUTTON
+502
+484
+616
+517
+Simul Noise
+simul_Noise\n
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+PLOT
+621
+459
+821
+609
+Noise Effect
+Tme
+Effort
+0.0
+4000.0
+0.0
+2.5
+true
+false
+"" ""
+PENS
+"Noise_Low_Level" 1.0 0 -5825686 true "" ""
+"Noise_Medium_Level" 1.0 0 -4079321 true "" ""
+"Noise_High_Level" 1.0 0 -13791810 true "" ""
+
+BUTTON
+1274
+296
+1412
+329
+Sims - Rational
+SimsRational
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
