@@ -5,7 +5,7 @@ breed[agentsE agentE] ; Agents utilisés pour visualiser les efforts
 globals [
   x-domain ;
   precision-Domain
-  effort-min  ; = 0.00010  ; effort minimum fournir par un agent
+  effort-min  ; = 0.0001  ; effort minimum fournir par un agent
   effort-max  ; = 2.001  ; effort maximum fournir par un agent
 
   availableClones ; Pour la double visualisation
@@ -28,8 +28,10 @@ agents-own [
   last_profit
   binome_last_effort
   binome_last_profit
-  all_average_effort
+  ;all_average_effort
   all_average_profit
+  binome_average_effort
+  binome_all_effort
   have_Played? ; true si l'agent a participé à un binômage durant le tick courant
   ;( utilisée pour la fonction "logs" et "adaptation" )
 ]
@@ -131,7 +133,7 @@ to setup-agents
           set effort effort-max
         ]
         [
-          set effort ( random-float ( 2 + effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2.001
+          set effort effort-min + random-float (effort-max - effort-min) ; random d'un flottant  allant de 0.00010 à 2.001
         ]
       ]
       set label who
@@ -160,12 +162,12 @@ to setup
   clear-drawing
   clear-output
 
-  set effort-min 0.00010
+  set effort-min 0.0001
   set effort-max 2.001
 
   ; On crée une liste contenant tous les chiffres de 0.00010 à 2.001 , avec un pas de  (1 / precision-Domain )
   ; Ce domaine sera utilisé pour les comportement de type "rational" et  "average rational"
-  set precision-Domain 1000
+  set precision-Domain 100
 
   let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 à  1[  ( 1 exlu )
   set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace l'effort "0" par 0.00010
@@ -263,6 +265,13 @@ to game
 
   let effort_j 0
   ask antagonist [ set effort_j effort ]
+
+  if useNose? [
+    let  coef ((1 - Nose) + random-float ((1 + Nose) - (1 - Nose))) ; random d'un flottant  allant de 1-buit à 1+buit
+    print coef
+  ]
+
+
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   set profit_cumule ( profit_cumule + profit )
 
@@ -271,6 +280,9 @@ to game
 
   let profit_i profit
   ask antagonist [ set binome_last_profit profit_i ]
+
+  set binome_all_effort binome_all_effort + effort_j
+  set binome_average_effort (binome_all_effort / nbInteractions)
 
 end
 
@@ -344,7 +356,7 @@ to adaptation
     ; Si le profit de l'agent même est supérieur, il augmente de 10%, sinon il baisse de 10%
     if typeAgent = 4
     [
-      ifelse ( last_profit > binome_last_profit )
+      ifelse ( profit > binome_last_profit )
       [
         set effort ( effort * 1.1 )
       ]
@@ -352,13 +364,12 @@ to adaptation
         set effort ( effort * 0.9 )
       ]
     ]
-    ; Nouvel effort plus ou moins autour de 2. Varie entre 1.999 et 2.001
+    ; Nouvel effort égale à l'effort max ,  2.001
     if typeAgent = 5
     [
-      ;set effort ( 1.999 + random-float 0.002 )
       set effort effort-max
     ]
-    ; Idem que le rationel, remplacer binome_last_effort par all_average_effort
+    ; Idem que le rationel, remplacer binome_last_effort par binome_average_effort
     if typeAgent = 6
     [
 
@@ -366,7 +377,7 @@ to adaptation
       let profit-values []  ; liste de tous les profits calculés
       foreach x-domain
       [
-        set profitTmp fct ? all_average_effort
+        set profitTmp fct ? binome_average_effort
         set profit-values lput profitTmp profit-values   ; on remplie la liste des profits
       ]
       ;print profit-values
@@ -469,28 +480,39 @@ to simuHighEffort [otherAgent]
   let x_0 0
   let x_1 0
   let x_2 0
+  let x_3 0
   let x_4 0
+  let x_6 0
   let x_7 0
   let x_8 0
   let x_9 0
 
+   if otherAgent = 0 [print "Null Effort" ]
+   if otherAgent = 1 [print "Shrinking Effort"]
+   if otherAgent = 2 [print "Replicator"]
+   if otherAgent = 3 [print "Rational"]
+   if otherAgent = 4 [print "Profit Comparator"]
+   if otherAgent = 6 [print "Average_Rational"]
+   if otherAgent = 7 [print "Winner Imitator"]
+   if otherAgent = 8 [print "Effort Comparator"]
+   if otherAgent = 9 [print "Averager"]
+
   let percentage 100
 
-  if otherAgent != 0 and otherAgent != 1 and otherAgent != 2 and otherAgent != 4 and otherAgent != 7 and otherAgent != 8 and otherAgent != 9
-  [
-    stop
-  ]
+  if otherAgent = 5 [ stop ]
 
   while [percentage != -1]
   [
     if otherAgent = 0 [set-current-plot-pen "Null Effort" set x_0 percentage]
     if otherAgent = 1 [set-current-plot-pen "Shrinking Effort" set x_1 percentage]
     if otherAgent = 2 [set-current-plot-pen "Replicator" set x_2 percentage]
+    if otherAgent = 3 [set-current-plot-pen "Rational" set x_3 percentage]
     if otherAgent = 4 [set-current-plot-pen "Profit Comparator" set x_4 percentage]
+    if otherAgent = 6 [set-current-plot-pen "Average_Rational" set x_6 percentage]
     if otherAgent = 7 [set-current-plot-pen "Winner Imitator" set x_7 percentage]
     if otherAgent = 8 [set-current-plot-pen "Effort Comparator" set x_8 percentage]
     if otherAgent = 9 [set-current-plot-pen "Averager" set x_9 percentage]
-    setup_values x_0 x_1 x_2 0 x_4 (100 - percentage) 0 x_7 x_8 x_9
+    setup_values x_0 x_1 x_2 x_3 x_4 (100 - percentage) x_6 x_7 x_8 x_9
     setup
     while [ticks < 5000]
     [
@@ -501,6 +523,8 @@ to simuHighEffort [otherAgent]
       set avgEffort avgEffort + effort
     ]
     set avgEffort (avgEffort / count agents)
+    print word (word (100 - percentage) "%, Observed Effort ") avgEffort
+
     plotxy (100 - percentage) avgEffort
 
     if (percentage = 0) [set percentage -1]
@@ -510,7 +534,6 @@ to simuHighEffort [otherAgent]
     if (percentage = 99) [plot-pen-down set percentage 95]
     if (percentage = 100) [plot-pen-down set percentage 99]
   ]
-
   plot-pen-up
 
 end
@@ -548,7 +571,7 @@ INPUTBOX
 117
 70
 nbAgents_null
-6
+100
 1
 0
 Number
@@ -559,7 +582,7 @@ INPUTBOX
 166
 133
 nbAgents_shrinking
-6
+0
 1
 0
 Number
@@ -570,7 +593,7 @@ INPUTBOX
 166
 196
 nbAgents_replicator
-6
+0
 1
 0
 Number
@@ -581,7 +604,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-6
+0
 1
 0
 Number
@@ -592,7 +615,7 @@ INPUTBOX
 166
 322
 nbAgents_profit
-6
+0
 1
 0
 Number
@@ -603,7 +626,7 @@ INPUTBOX
 166
 385
 nbAgents_high
-6
+0
 1
 0
 Number
@@ -614,7 +637,7 @@ INPUTBOX
 166
 448
 nbAgents_average_Rational
-6
+0
 1
 0
 Number
@@ -625,7 +648,7 @@ INPUTBOX
 166
 511
 nbAgents_winner
-6
+0
 1
 0
 Number
@@ -636,7 +659,7 @@ INPUTBOX
 166
 574
 nbAgents_effort
-6
+0
 1
 0
 Number
@@ -647,7 +670,7 @@ INPUTBOX
 166
 637
 nbAgents_averager
-6
+0
 1
 0
 Number
@@ -687,16 +710,16 @@ NIL
 0
 
 SLIDER
-216
-177
-388
-210
-bruit
-bruit
-1
-50
-1
-1
+202
+256
+374
+289
+Nose
+Nose
+0.01
+0.5
+0.01
+0.01
 1
 NIL
 HORIZONTAL
@@ -735,6 +758,8 @@ PENS
 "Winner Imitator" 1.0 0 -11221820 true "" ""
 "Effort Comparator" 1.0 0 -6459832 true "" ""
 "Averager" 1.0 0 -14835848 true "" ""
+"Rational" 1.0 0 -7500403 true "" ""
+"Average_Rational" 1.0 0 -2674135 true "" ""
 
 BUTTON
 337
@@ -888,6 +913,51 @@ NIL
 NIL
 NIL
 1
+
+BUTTON
+970
+655
+1124
+688
+Rational - HE Sim
+simuHighEffort 3
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+1124
+655
+1336
+688
+AverageRational - HE Sim
+simuHighEffort 6
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SWITCH
+223
+217
+350
+250
+useNose?
+useNose?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1232,7 +1302,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3
+NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
