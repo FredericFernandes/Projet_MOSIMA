@@ -16,13 +16,6 @@ patches-own [
   obstacle?
 ]
 
-globals [
-  x-domain ;
-  precision-Domain
-  effort-min  ; = 0.00010  ; effort minimum fournir par un agent
-  effort-max  ; = 2.001  ; effort maximum fournir par un agent
-]
-
 agents-own [
   typeAgent
   couleur_type
@@ -62,29 +55,11 @@ to agentsE-update
     ]
     setxy (xCl + max-pxcor / 2 + 1) yCl
 
-<<<<<<< HEAD
-  set effort-min 0.00010
-  set effort-max 2.001
-
-  ; On crée une liste contenant tous les chiffres de 0.00010 à 2.001 , avec un pas de  (1 / precision-Domain )
-  ; Ce domaine sera utilisé pour les comportement de type "rational" et  "average rational"
-  set precision-Domain 1000
-
-  let dom1 n-values precision-Domain [? / precision-Domain] ; [0.00010 à  1[  ( 1 exlu )
-  set dom1 replace-item 0 dom1 effort-min  ; ; on sremplace l'effort "0" par 0.00010
-
-  let  dom2 n-values (precision-Domain + 1) [(? / precision-Domain) + 1 ] ; [1 à  2] ( 2 inclu )
-  set dom2 lput 2.001 dom2  ; ajout de l'effort 2.001
-  set x-domain sentence dom1 dom2
-  print x-domain
-
-=======
     set color palette:scale-gradient [[0 0 255][0 85 255][0 170 255][0 255 255][0 255 170][0 255 85][0 255 0][85 255 0][170 255 0][255 255 0][255 170 0][255 85 0][255 0 0]] effortCl 0 2
   ]
 end
 
 to setup-agents
->>>>>>> origin/abde
   create-agents nbAgents_null [
     set typeAgent 0
     set couleur_type red
@@ -144,11 +119,6 @@ to setup-agents
     set shape "square"
     set heading one-of [0 90 180 270]
 
-<<<<<<< HEAD
-    set effort ( random-float ( 2 + effort-min )) + effort-min  ; random d'un flottant  allant de 0.00010 à 2.001
-    set label who
-    logs
-=======
     ifelse (typeAgent = 0)[
       set effort effort-min
     ]
@@ -169,7 +139,6 @@ to setup-agents
       set label who
       ;logs
     ]
->>>>>>> origin/abde
   ]
 end
 
@@ -237,12 +206,9 @@ to go
     game
   ]
   if verbose? [print "-- End Game phase --"]
-<<<<<<< HEAD
-=======
 
   agentsE-update
 
->>>>>>> origin/abde
   ask agents with [have_Played? ] [
     adaptation
   ]
@@ -451,18 +417,12 @@ to adaptation
   ]
 end
 
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/abde
 to-report fct [_x binLastEff ]
   ; f(x) = ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   report ( ( 5 * ( sqrt ( _x + binLastEff ) ) ) - ( _x ^ 2) )
 end
 
 
-<<<<<<< HEAD
-=======
 ; Methode permettant de changer le nombre d'agent de chaque type directement sans le faire manuellement
 to setup_values [null shrinking replicator rational prfit high avg winner effrt avgr]
   set nbAgents_null null
@@ -619,6 +579,7 @@ to simuNoiseAgents [namePlot]
 
 end
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> origin/abde
 =======
 ; Simulation (Reproduire les courbes 6.15)
@@ -633,6 +594,8 @@ to simul_Noise
   simuNoiseAgents "Noise_High_Level"
 end
 >>>>>>> abde
+=======
+>>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 @#$#@#$#@
 GRAPHICS-WINDOW
 407
@@ -702,6 +665,7 @@ INPUTBOX
 nbAgents_rational
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 1
 =======
 6
@@ -709,6 +673,9 @@ nbAgents_rational
 =======
 99
 >>>>>>> abde
+=======
+6
+>>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 1
 0
 Number
@@ -721,6 +688,7 @@ INPUTBOX
 nbAgents_profit
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 0
 =======
 6
@@ -728,6 +696,9 @@ nbAgents_profit
 =======
 0
 >>>>>>> abde
+=======
+6
+>>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 1
 0
 Number
