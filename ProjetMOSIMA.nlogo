@@ -578,10 +578,6 @@ to simuNoiseAgents [namePlot]
   plot-pen-up
 
 end
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> origin/abde
-=======
 ; Simulation (Reproduire les courbes 6.15)
 to simul_Noise
   clear-all-plots
@@ -593,9 +589,6 @@ to simul_Noise
   set Noise 0.5
   simuNoiseAgents "Noise_High_Level"
 end
->>>>>>> abde
-=======
->>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 @#$#@#$#@
 GRAPHICS-WINDOW
 407
@@ -663,19 +656,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-1
-=======
-6
->>>>>>> origin/abde
-=======
 99
->>>>>>> abde
-=======
-6
->>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 1
 0
 Number
@@ -686,19 +667,7 @@ INPUTBOX
 166
 322
 nbAgents_profit
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 0
-=======
-6
->>>>>>> origin/abde
-=======
-0
->>>>>>> abde
-=======
-6
->>>>>>> bedd7dc7eb22d935159a0147c94f94aec5f317f5
 1
 0
 Number
