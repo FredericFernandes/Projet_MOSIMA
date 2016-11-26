@@ -22,6 +22,7 @@ agents-own [
   evolution
   nbInteractions
   effort
+  effort_cumule
   ;last_effort
   profit
   profit_cumule
@@ -34,6 +35,10 @@ agents-own [
   binome_all_effort
   have_Played? ; true si l'agent a participé à un binômage durant le tick courant
   ;( utilisée pour la fonction "logs" et "adaptation" )
+
+  binome_interactions_nature
+  binome_effort_nature
+  binome_profit_nature
 ]
 
 ; Agents représentant les efforts et leurs équivalents représentant le type
@@ -118,6 +123,10 @@ to setup-agents
     set color couleur_type
     set shape "square"
     set heading one-of [0 90 180 270]
+
+    set binome_effort_nature [0 0 0 0 0 0 0 0 0 0]
+    set binome_profit_nature [0 0 0 0 0 0 0 0 0 0]
+    set binome_interactions_nature [0 0 0 0 0 0 0 0 0 0]
 
     ifelse (typeAgent = 0)[
       set effort effort-min
@@ -212,6 +221,15 @@ to go
   ask agents with [have_Played? ] [
     adaptation
   ]
+
+  if mutation?
+  [
+    ask agents with [have_Played?]
+    [
+      mutation
+    ]
+  ]
+
   if verbose? [
     ask agents with [have_Played? ][ logs ]
   ]
@@ -275,6 +293,7 @@ to game
 
   set profit ( ( 5 * ( sqrt ( effort + effort_j ) ) ) - ( effort ^ 2) )
   set profit_cumule ( profit_cumule + profit )
+  set effort_cumule ( effort_cumule + effort )
 
   set binome_last_effort effort_j
 
@@ -284,6 +303,17 @@ to game
 
   set binome_all_effort binome_all_effort + effort_j
   set binome_average_effort (binome_all_effort / nbInteractions)
+
+  let index [typeAgent] of antagonist
+  set binome_interactions_nature (replace-item index binome_interactions_nature ( (item index binome_interactions_nature) + 1))
+  set binome_effort_nature (replace-item index binome_effort_nature ( (item index binome_effort_nature) + binome_last_effort))
+
+  set index typeAgent
+  ask antagonist [
+    set binome_profit_nature (replace-item index binome_profit_nature ( (item index binome_profit_nature) + profit_i))
+  ]
+
+
 
 end
 
@@ -569,6 +599,99 @@ to simuNoiseAgents [namePlot]
   plot-pen-up
 
 end
+
+to mutation
+  if (sum binome_interactions_nature mod 500 = 0)
+  [
+  let moyenneProfit []
+  let i 0
+  while [i < 10]
+    [
+      ifelse ( (item i binome_interactions_nature) != 0)
+      [
+
+        if (mutation_type = "mutation_profit")
+        [
+          set moyenneProfit lput ( (item i binome_profit_nature) / (item i binome_interactions_nature) ) moyenneProfit
+        ]
+
+        if (mutation_type = "mutation_ratio")
+        [
+          set moyenneProfit lput ( (item i binome_profit_nature) / (item i binome_interactions_nature) / (item i binome_effort_nature + 0.000001) ) moyenneProfit
+        ]
+      ]
+      [
+        set moyenneProfit lput 0 moyenneProfit
+      ]
+      set i (i + 1)
+    ]
+
+  let newType typeAgent
+
+  if (mutation_type = "mutation_profit")
+  [
+    if (max moyenneProfit >= profit_cumule / nbInteractions)
+    [
+      set newType position max moyenneProfit moyenneProfit
+    ]
+  ]
+  if (mutation_type = "mutation_ratio")
+  [
+    if (max moyenneProfit >= profit_cumule / nbInteractions / (effort_cumule + 0.000001))
+    [
+      set newType position max moyenneProfit moyenneProfit
+    ]
+  ]
+
+  if (newType != typeAgent)
+    [
+      set typeAgent newType
+      if (typeAgent = 0) [
+        set color red
+      ]
+
+      if (typeAgent = 1) [
+        set color orange
+      ]
+
+      if (typeAgent = 2) [
+        set color brown
+      ]
+
+      if (typeAgent = 3) [
+        set color yellow
+      ]
+
+      if (typeAgent = 4) [
+        set color green
+      ]
+
+      if (typeAgent = 5) [
+        set color cyan
+      ]
+
+      if (typeAgent = 6) [
+        set color blue
+      ]
+
+      if (typeAgent = 7) [
+        set color violet
+      ]
+
+      if (typeAgent = 8) [
+        set color magenta
+      ]
+
+      if (typeAgent = 9) [
+        set color pink
+      ]
+
+    ]
+
+  ]
+end
+
+
 ; Simulation (Reproduire les courbes 6.15)
 to simul_Noise
   clear-all-plots
@@ -614,7 +737,7 @@ INPUTBOX
 117
 70
 nbAgents_null
-0
+10
 1
 0
 Number
@@ -625,7 +748,7 @@ INPUTBOX
 166
 133
 nbAgents_shrinking
-0
+10
 1
 0
 Number
@@ -636,7 +759,7 @@ INPUTBOX
 166
 196
 nbAgents_replicator
-0
+10
 1
 0
 Number
@@ -647,7 +770,7 @@ INPUTBOX
 166
 259
 nbAgents_rational
-0
+10
 1
 0
 Number
@@ -658,7 +781,7 @@ INPUTBOX
 166
 322
 nbAgents_profit
-149
+10
 1
 0
 Number
@@ -680,7 +803,7 @@ INPUTBOX
 166
 448
 nbAgents_average_Rational
-0
+10
 1
 0
 Number
@@ -691,7 +814,7 @@ INPUTBOX
 166
 511
 nbAgents_winner
-0
+10
 1
 0
 Number
@@ -702,7 +825,7 @@ INPUTBOX
 166
 574
 nbAgents_effort
-0
+10
 1
 0
 Number
@@ -713,7 +836,7 @@ INPUTBOX
 166
 637
 nbAgents_averager
-0
+10
 1
 0
 Number
@@ -761,7 +884,7 @@ Noise
 Noise
 0.01
 0.5
-0.25
+0.26
 0.01
 1
 NIL
@@ -998,7 +1121,7 @@ SWITCH
 233
 useNoise?
 useNoise?
-0
+1
 1
 -1000
 
@@ -1086,6 +1209,27 @@ Affichage par Effort
 12
 0.0
 1
+
+SWITCH
+299
+368
+427
+401
+mutation?
+mutation?
+0
+1
+-1000
+
+CHOOSER
+274
+405
+455
+450
+mutation_type
+mutation_type
+"mutation_profit" "mutation_ratio"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1430,7 +1574,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3
+NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
